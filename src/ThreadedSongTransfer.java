@@ -1,3 +1,4 @@
+import java.awt.Desktop;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -12,12 +13,14 @@ import javax.swing.SwingWorker;
 
 import entagged.audioformats.AudioFile;
 import entagged.audioformats.AudioFileIO;
+import entagged.audioformats.Tag;
 
 // import org.jaudiotagger.audio.mp3;
 
 public class ThreadedSongTransfer extends SwingWorker<Void, String> {
-    // Lengths of "AudioFilename: ", "Title:", "Artist:"
-    private final int FILENAME_POS = 15, TITLE_POS = 6, ARTIST_POS = 7;
+    // Lengths of "AudioFilename: ", "Title:", "Artist:", "Source:"
+    private final int FILENAME_POS = 15, TITLE_POS = 6, ARTIST_POS = 7,
+	    SOURCE_POS = 7;
 
     private int total = 0, processed = 0;
 
@@ -92,8 +95,12 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 
 	if (makePlaylist)
 	    out.close();
-	publish("Finished.");
-	System.out.println(errors + errors.length());
+	publish("Finished. Launching the playlist...");
+	publish("(Also saved at " + new File("playlist.m3u").getAbsolutePath() + ")");
+
+	Desktop.getDesktop().open(new File("playlist.m3u"));
+
+	// System.out.println(errors + errors.length());
 	if (errors.length() > 0)
 	    Util.textPane("Errors", errors);
 	// System.out.println( processed ); TODO remove
@@ -114,19 +121,24 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 	}
     }
 
-    public void tag(String songLoc, String title, String artist)
+    public void tag(String songLoc, String title, String artist, String source)
 	    throws InterruptedException {
 	try {
 	    File songFile = new File(songLoc);
 	    AudioFile af = AudioFileIO.read(songFile);
 	    af.getTag().setArtist(artist);
 	    af.getTag().setTitle(title);
+	    System.out.println(source + ", " + af.getTag().getFirstAlbum());
+	    if (source.length() > 0
+		    && af.getTag().getFirstAlbum().length() == 0) {
+		af.getTag().setAlbum(source);
+	    }
 	    af.commit();
 	    publish("Tagged: " + Util.cutPath(songLoc));
 	}
-//	catch (StringIndexOutOfBoundsException s) {
-//	    System.out.println("wtf");
-//	}
+	// catch (StringIndexOutOfBoundsException s) {
+	// System.out.println("wtf");
+	// }
 	catch (Exception e) {
 	    // if ( e instanceof CannotReadException )
 	    // publish( "Could not read: " + Util.cutPath( songLoc ) );
@@ -156,8 +168,8 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 		findLine = f.readLine();
 	    String song = findLine.substring(FILENAME_POS);
 
-	    //TODO condense
-	    //TODO code reuse
+	    // TODO condense
+	    // TODO code reuse
 	    if (toSkip.contains(findLine))
 		return;
 	    toSkip.add(findLine);
@@ -167,16 +179,20 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 	    while (!findLine.contains("Title:"))
 		findLine = f.readLine();
 	    String title = findLine.substring(TITLE_POS);
-	    
+
 	    while (!findLine.contains("Artist:"))
 		findLine = f.readLine();
 	    String artist = findLine.substring(ARTIST_POS);
 	    String songLoc = dir.toString() + "\\" + song;
 
+	    while (!findLine.contains("Source"))
+		findLine = f.readLine();
+	    String source = findLine.substring(SOURCE_POS);
+
 	    if (makePlaylist)
 		playlist(songLoc, artist, title);
 	    if (fixTags)
-		tag(songLoc, title, artist);
+		tag(songLoc, title, artist, source);
 	    processed++;
 	    pgw.setProgressBar(processed);
 	}
