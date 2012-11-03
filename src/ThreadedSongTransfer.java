@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashSet;
 import java.util.List;
@@ -13,16 +14,13 @@ import javax.swing.SwingWorker;
 
 import entagged.audioformats.AudioFile;
 import entagged.audioformats.AudioFileIO;
-import entagged.audioformats.Tag;
 
 // import org.jaudiotagger.audio.mp3;
 
 public class ThreadedSongTransfer extends SwingWorker<Void, String> {
     // Lengths of "AudioFilename: ", "Title:", "Artist:", "Source:"
-    private final int FILENAME_POS = 15, TITLE_POS = 6, ARTIST_POS = 7,
-	    SOURCE_POS = 7;
 
-    private int total = 0, processed = 0;
+    private int processed = 0;
 
     private String songsFolderLoc;
 
@@ -37,24 +35,8 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 
     private String errors;
 
-    // private JTextArea TextArea;
-
-    // private String songsFolderLoc;
-
     // TODO write in skipping entire folders
     // TODO fix printout to file, since console cuts things off.
-
-    // Testing only
-    public static void main(String[] args) throws Exception {
-	// new SongTransfer(
-	// "C:\\Users\\Akrolsmir\\Desktop\\Gaming Programs\\osu!\\Songs",
-	// false,
-	// false );
-
-	// mod( new File(
-	// "C:\\Users\\Akrolsmir\\Desktop\\24496 Nightwish - Amaranth\\Amaranth.mp3"
-	// ), "hi", "title" );
-    }
 
     public ThreadedSongTransfer(PlaylistGeneratorWindow p,
 	    String songsFolderLoc, boolean makePlaylist, boolean fixTags)
@@ -92,15 +74,14 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 		publish("Stopped.");
 	    }
 	}
-
+	publish("...");
 	if (makePlaylist)
 	    out.close();
-	publish("Finished. Launching the playlist...");
-	publish("(Also saved at " + new File("playlist.m3u").getAbsolutePath() + ")");
-
+	publish("Finished! Launching the playlist...");
+	publish("(Also saved at " + new File("playlist.m3u").getAbsolutePath()
+		+ ")");
 	Desktop.getDesktop().open(new File("playlist.m3u"));
 
-	// System.out.println(errors + errors.length());
 	if (errors.length() > 0)
 	    Util.textPane("Errors", errors);
 	// System.out.println( processed ); TODO remove
@@ -108,7 +89,6 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
     }
 
     public void processAllFiles(File dir) throws InterruptedException {
-	// System.out.println( dir.listFiles().length );
 	for (File f : dir.listFiles()) {
 	    if (f.isFile() && Util.getExtension(f).equals("osu"))
 		processOsuFile(f, dir);
@@ -128,7 +108,7 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 	    AudioFile af = AudioFileIO.read(songFile);
 	    af.getTag().setArtist(artist);
 	    af.getTag().setTitle(title);
-	    System.out.println(source + ", " + af.getTag().getFirstAlbum());
+	    // System.out.println(source + ", " + af.getTag().getFirstAlbum());
 	    if (source.length() > 0
 		    && af.getTag().getFirstAlbum().length() == 0) {
 		af.getTag().setAlbum(source);
@@ -162,33 +142,15 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
     public void processOsuFile(File file, File dir) throws InterruptedException {
 	try {
 	    BufferedReader f = new BufferedReader(new FileReader(file));
-	    // Finds the line of "Audio Filename: ";
-	    String findLine = "";
-	    while (!findLine.contains("AudioFilename:"))
-		findLine = f.readLine();
-	    String song = findLine.substring(FILENAME_POS);
 
-	    // TODO condense
-	    // TODO code reuse
-	    if (toSkip.contains(findLine))
+	    String song = findAttribute("AudioFilename: ", f);
+	    if (!toSkip.add(song))
 		return;
-	    toSkip.add(findLine);
+	    String title = findAttribute("Title:", f);
+	    String artist = findAttribute("Artist:", f);
+	    String source = findAttribute("Source:", f);
 
-	    // Extracts title and artist names
-
-	    while (!findLine.contains("Title:"))
-		findLine = f.readLine();
-	    String title = findLine.substring(TITLE_POS);
-
-	    while (!findLine.contains("Artist:"))
-		findLine = f.readLine();
-	    String artist = findLine.substring(ARTIST_POS);
 	    String songLoc = dir.toString() + "\\" + song;
-
-	    while (!findLine.contains("Source"))
-		findLine = f.readLine();
-	    String source = findLine.substring(SOURCE_POS);
-
 	    if (makePlaylist)
 		playlist(songLoc, artist, title);
 	    if (fixTags)
@@ -196,10 +158,6 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 	    processed++;
 	    pgw.setProgressBar(processed);
 	}
-	// catch(InterruptedException i)
-	// {
-	// throw new InterruptedException();
-	// }
 	catch (Exception e) {
 	    if (Thread.interrupted())
 		throw new InterruptedException();
@@ -208,6 +166,22 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String> {
 		storeError(e, "Error?", file.getName());
 	    }
 	}
+    }
+
+    private String findAttribute(String attr, BufferedReader f) {
+	String findLine = "";
+	try {
+	    while (!findLine.contains(attr)) {
+		findLine = f.readLine();
+		if (findLine == null)
+		    return "";
+	    }
+	    return findLine.substring(attr.length());
+	}
+	catch (IOException e) {
+	    storeError(e, "IOException", "");
+	}
+	return "";
     }
 
     @Override
