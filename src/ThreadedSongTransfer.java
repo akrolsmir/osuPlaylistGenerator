@@ -13,11 +13,9 @@ import javax.swing.SwingWorker;
 import entagged.audioformats.AudioFile;
 import entagged.audioformats.AudioFileIO;
 
-
 // import org.jaudiotagger.audio.mp3;
 
-public class ThreadedSongTransfer extends SwingWorker<Void, String>
-{
+public class ThreadedSongTransfer extends SwingWorker<Void, String> {
     // Lengths of "AudioFilename: ", "Title:", "Artist:"
     private final int FILENAME_POS = 15, TITLE_POS = 6, ARTIST_POS = 7;
 
@@ -33,9 +31,8 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String>
     private boolean makePlaylist, fixTags;
 
     private PlaylistGeneratorWindow pgw;
-    
-    private String errors;
 
+    private String errors;
 
     // private JTextArea TextArea;
 
@@ -45,193 +42,177 @@ public class ThreadedSongTransfer extends SwingWorker<Void, String>
     // TODO fix printout to file, since console cuts things off.
 
     // Testing only
-    public static void main( String[] args ) throws Exception
-    {
+    public static void main(String[] args) throws Exception {
+	// new SongTransfer(
+	// "C:\\Users\\Akrolsmir\\Desktop\\Gaming Programs\\osu!\\Songs",
+	// false,
+	// false );
 
-        // new SongTransfer(
-        // "C:\\Users\\Akrolsmir\\Desktop\\Gaming Programs\\osu!\\Songs",
-        // false,
-        // false );
-
-        // mod( new File(
-        // "C:\\Users\\Akrolsmir\\Desktop\\24496 Nightwish - Amaranth\\Amaranth.mp3"
-        // ), "hi", "title" );
+	// mod( new File(
+	// "C:\\Users\\Akrolsmir\\Desktop\\24496 Nightwish - Amaranth\\Amaranth.mp3"
+	// ), "hi", "title" );
     }
 
-
-    public ThreadedSongTransfer(
-        PlaylistGeneratorWindow p,
-        String songsFolderLoc,
-        boolean makePlaylist,
-        boolean fixTags ) throws Exception
-    {
-        pgw = p;
-        this.songsFolderLoc = songsFolderLoc;
-        this.makePlaylist = makePlaylist;
-        this.fixTags = fixTags;
+    public ThreadedSongTransfer(PlaylistGeneratorWindow p,
+	    String songsFolderLoc, boolean makePlaylist, boolean fixTags)
+	    throws Exception {
+	pgw = p;
+	this.songsFolderLoc = songsFolderLoc;
+	this.makePlaylist = makePlaylist;
+	this.fixTags = fixTags;
 
     }
-
 
     @Override
-    protected Void doInBackground() throws Exception
-    {
-        toSkip = new HashSet<String>();
+    protected Void doInBackground() throws Exception {
+	toSkip = new HashSet<String>();
+	errors = "";
 
-        publish( "Processing..." );
-        if ( makePlaylist )
-        {
-            out = new PrintWriter( new BufferedWriter( new FileWriter( "playlist.m3u" ) ) );
-            out.println( "#EXTM3U" );
-        }
+	publish("Processing...");
+	if (makePlaylist) {
+	    out = new PrintWriter(new BufferedWriter(new FileWriter(
+		    "playlist.m3u")));
+	    out.println("#EXTM3U");
+	}
 
-        File dir = new File( songsFolderLoc );
-        if ( !dir.isDirectory() )
-        {
-            publish( "Invalid location, try again" );
-            return null;
-        }
-        else
-        {
-            pgw.initializeProgressBar( dir.listFiles().length );
-            try
-            {
-                processAllFiles( dir );
-            }
-            catch ( InterruptedException e )
-            {
-                publish( "Stopped." );
-            }
-        }
+	File dir = new File(songsFolderLoc);
+	if (!dir.isDirectory()) {
+	    publish("Invalid location, try again");
+	    return null;
+	}
+	else {
+	    pgw.initializeProgressBar(dir.listFiles().length);
+	    try {
+		processAllFiles(dir);
+	    }
+	    catch (InterruptedException e) {
+		publish("Stopped.");
+	    }
+	}
 
-        if ( makePlaylist )
-            out.close();
-        publish( "Finished." );
-        // System.out.println( processed ); TODO remove
-        return null;
+	if (makePlaylist)
+	    out.close();
+	publish("Finished.");
+	System.out.println(errors + errors.length());
+	if (errors.length() > 0)
+	    Util.textPane("Errors", errors);
+	// System.out.println( processed ); TODO remove
+	return null;
     }
 
-
-    public void processAllFiles( File dir ) throws InterruptedException
-    {
-        // System.out.println( dir.listFiles().length );
-        for ( File f : dir.listFiles() )
-        {
-            if ( f.isFile() && Util.getExtension( f ).equals( "osu" ) )
-                processOsuFile( f, dir );
-            else if ( f.isDirectory() )
-                processAllFiles( f );
-            if ( Thread.interrupted() )
-            {
-                System.out.println( "Oh Dear!" );
-                throw new InterruptedException();
-            }
-        }
+    public void processAllFiles(File dir) throws InterruptedException {
+	// System.out.println( dir.listFiles().length );
+	for (File f : dir.listFiles()) {
+	    if (f.isFile() && Util.getExtension(f).equals("osu"))
+		processOsuFile(f, dir);
+	    else if (f.isDirectory())
+		processAllFiles(f);
+	    if (Thread.interrupted()) {
+		System.out.println("Oh Dear!");
+		throw new InterruptedException();
+	    }
+	}
     }
 
-
-    public void tag( String songLoc, String title, String artist )
-        throws InterruptedException
-    {
-        try
-        {
-            File songFile = new File( songLoc );
-            AudioFile af = AudioFileIO.read( songFile );
-            af.getTag().setArtist( artist );
-            af.getTag().setTitle( title );
-            af.commit();
-            publish( "Tagged: " + Util.cutPath( songLoc ) );
-        }
-        catch ( StringIndexOutOfBoundsException s )
-        {
-            System.out.println( "wtf" );
-        }
-        catch ( Exception e )
-        {
-            // if ( e instanceof CannotReadException )
-            // publish( "Could not read: " + Util.cutPath( songLoc ) );
-            // else
-            if ( Thread.interrupted() )
-                throw new InterruptedException();
-            else
-            {
-                e.printStackTrace();
-                Util.errorException( e, "Couldn't Tag" );
-            }
-        }
+    public void tag(String songLoc, String title, String artist)
+	    throws InterruptedException {
+	try {
+	    File songFile = new File(songLoc);
+	    AudioFile af = AudioFileIO.read(songFile);
+	    af.getTag().setArtist(artist);
+	    af.getTag().setTitle(title);
+	    af.commit();
+	    publish("Tagged: " + Util.cutPath(songLoc));
+	}
+//	catch (StringIndexOutOfBoundsException s) {
+//	    System.out.println("wtf");
+//	}
+	catch (Exception e) {
+	    // if ( e instanceof CannotReadException )
+	    // publish( "Could not read: " + Util.cutPath( songLoc ) );
+	    // else
+	    if (Thread.interrupted())
+		throw new InterruptedException();
+	    else {
+		e.printStackTrace();
+		storeError(e, "Couldn't Tag", title);
+	    }
+	}
 
     }
 
-
-    public void playlist( String songLoc, String artist, String title )
-    {
-        out.println( "#EXTINF:" + "," + artist + " - " + title );
-        out.println( songLoc );
-        publish( "Added: " + Util.cutPath( songLoc ) );
+    public void playlist(String songLoc, String artist, String title) {
+	out.println("#EXTINF:" + "," + artist + " - " + title);
+	out.println(songLoc);
+	publish("Added: " + Util.cutPath(songLoc));
     }
 
+    public void processOsuFile(File file, File dir) throws InterruptedException {
+	try {
+	    BufferedReader f = new BufferedReader(new FileReader(file));
+	    // Finds the line of "Audio Filename: ";
+	    String findLine = "";
+	    while (!findLine.contains("AudioFilename:"))
+		findLine = f.readLine();
+	    String song = findLine.substring(FILENAME_POS);
 
-    public void processOsuFile( File file, File dir )
-        throws InterruptedException
-    {
-        try
-        {
-            BufferedReader f = new BufferedReader( new FileReader( file ) );
-            // Finds the line of "Audio Filename: ";
-            String song = "";
-            while ( !song.contains( "name" ) )
-                song = f.readLine();
-            song = song.substring( FILENAME_POS );
+	    //TODO condense
+	    //TODO code reuse
+	    if (toSkip.contains(findLine))
+		return;
+	    toSkip.add(findLine);
 
-            if ( toSkip.contains( song ) )
-                return;
-            toSkip.add( song );
+	    // Extracts title and artist names
 
-            // Extracts title and artist names
-            String findMeta = "";
-            while ( !findMeta.equals( "[Metadata]" ) )
-                findMeta = f.readLine();
-            String title = f.readLine().substring( TITLE_POS );
-            String artist = f.readLine().substring( ARTIST_POS );
-            String songLoc = dir.toString() + "\\" + song;
+	    while (!findLine.contains("Title:"))
+		findLine = f.readLine();
+	    String title = findLine.substring(TITLE_POS);
+	    
+	    while (!findLine.contains("Artist:"))
+		findLine = f.readLine();
+	    String artist = findLine.substring(ARTIST_POS);
+	    String songLoc = dir.toString() + "\\" + song;
 
-            if ( makePlaylist )
-                playlist( songLoc, artist, title );
-            if ( fixTags )
-                tag( songLoc, title, artist );
-            processed++;
-            pgw.setProgressBar( processed );
-        }
-        // catch(InterruptedException i)
-        // {
-        // throw new InterruptedException();
-        // }
-        catch ( Exception e )
-        {
-            if ( Thread.interrupted() )
-                throw new InterruptedException();
-            else
-            {
-                System.out.println( file.getAbsolutePath() );
-                Util.errorException( e, "?" );
-            }
-        }
+	    if (makePlaylist)
+		playlist(songLoc, artist, title);
+	    if (fixTags)
+		tag(songLoc, title, artist);
+	    processed++;
+	    pgw.setProgressBar(processed);
+	}
+	// catch(InterruptedException i)
+	// {
+	// throw new InterruptedException();
+	// }
+	catch (Exception e) {
+	    if (Thread.interrupted())
+		throw new InterruptedException();
+	    else {
+		System.out.println(file.getAbsolutePath());
+		storeError(e, "Error?", file.getName());
+	    }
+	}
     }
-
 
     @Override
-    protected void process( List<String> toPrint )
-    {
-        // textArea.append(toPrint + "\n");
-        for ( String line : toPrint )
-            pgw.println( line );
+    protected void process(List<String> toPrint) {
+	// textArea.append(toPrint + "\n");
+	for (String line : toPrint)
+	    pgw.println(line);
     }
 
-
     @Override
-    protected void done()
-    {
-        pgw.enableGUI();
+    protected void done() {
+	pgw.enableGUI();
+    }
+
+    private void storeError(Exception e, String msg, String title) {
+	errors += msg + ": " + title + "\n";
+	// StringWriter sw = new StringWriter();
+	// PrintWriter pw = new PrintWriter( sw );
+	// e.printStackTrace( pw );
+	// sw.toString();
+	return;
     }
 
     // public void modify( File file, String title, String Artist )
